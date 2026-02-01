@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YTC | Faculty Feedback Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        :root { --ytc-blue: #1e3a8a; }
+        body { background: radial-gradient(circle at top right, #f8fafc, #e2e8f0); min-height: 100vh; }
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .dept-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
+        .dept-card:hover { transform: translateY(-10px) scale(1.03); box-shadow: 0 25px 40px -12px rgba(30, 58, 138, 0.25); border-color: #1e3a8a; }
+        .fac-card { transition: all 0.3s ease; cursor: pointer; border: 1px solid #e2e8f0; position: relative; }
+        .fac-card:hover { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        /* Lock Style */
+        .locked-card { opacity: 0.6; grayscale: 1; pointer-events: none; background: #f1f5f9 !important; }
+        .rating-btn { transition: all 0.2s ease; border: 2px solid #f1f5f9; }
+        .weak-area { background-color: #fef2f2; border-left: 4px solid #ef4444; padding-left: 1rem; }
+    </style>
+</head>
+<body class="pb-20">
+
+    <div id="login-overlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4">
+        <div class="glass bg-white p-8 rounded-[2.5rem] max-w-md w-full shadow-2xl animate__animated animate__fadeInDown">
+            <div class="text-center mb-8">
+                <img src="yashoda logo.jfif" alt="Logo" class="w-20 mx-auto mb-4 rounded-xl shadow-lg">
+                <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Institutional Login</h2>
+                <p class="text-slate-500 text-sm">Please identify your role and department</p>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="login-id" placeholder="ID / Enrollment Number" class="w-full p-4 rounded-2xl bg-slate-50 border outline-none focus:ring-2 focus:ring-blue-900 font-bold">
+                <select id="login-role" class="w-full p-4 rounded-2xl bg-slate-50 border outline-none focus:ring-2 focus:ring-blue-900 font-bold">
+                    <option value="student">Student</option>
+                    <option value="admin">HOD / Principal</option>
+                </select>
+                <select id="login-dept" class="w-full p-4 rounded-2xl bg-slate-50 border outline-none focus:ring-2 focus:ring-blue-900 font-bold">
+                    <option value="">Select Department</option>
+                    <option value="CO">Computer</option>
+                    <option value="AN">AI & DS</option>
+                    <option value="IF">Info Tech</option>
+                    <option value="ENTC">ENTC</option>
+                    <option value="CE">Civil</option>
+                    <option value="ME">Mechanical</option>
+                    <option value="EE">Electrical</option>
+                    <option value="GSE">Gen. Science</option>
+                </select>
+                <button onclick="attemptLogin()" class="w-full bg-blue-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-blue-800 transition-all">ENTER PORTAL</button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="glass sticky top-0 z-50 border-b border-gray-200 py-3 px-6">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="showDepartments()">
+                <div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden border border-slate-200">
+                    <img src="yashoda logo.jfif" alt="YTC Logo" class="w-full h-full object-contain">
+                </div>
+                <h1 class="text-xl font-black text-blue-900 tracking-tighter uppercase hidden sm:block">Yashoda Technical Campus</h1>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <button onclick="toggleLang()" class="px-4 py-2 rounded-full bg-slate-100 text-[10px] font-black hover:bg-blue-50 transition-colors uppercase">EN / मराठी</button>
+                <div id="nav-score" class="hidden flex items-center">
+                    <div class="text-right">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase leading-none">Live Score</p>
+                        <span id="live-score" class="text-blue-900 font-black text-lg">0/25</span>
+                    </div>
+                </div>
+                <button onclick="logout()" class="text-red-500 font-black px-3"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 mt-12">
+        
+        <div id="dashboard-view" class="hidden animate__animated animate__fadeIn">
+            <div class="flex justify-between items-end mb-8">
+                <div>
+                    <h2 class="text-3xl font-black text-slate-800">ADMIN DASHBOARD</h2>
+                    <p class="text-slate-500">Global summary of faculty performance</p>
+                </div>
+                <button onclick="generatePDFReport()" class="bg-blue-900 text-white px-6 py-3 rounded-xl font-black shadow-lg hover:bg-yellow-400 hover:text-slate-900 transition-all">
+                    <i class="fas fa-file-pdf mr-2"></i> EXPORT SUMMARY
+                </button>
+            </div>
+            <div class="bg-white rounded-[2rem] overflow-hidden shadow-xl border border-slate-100">
+                <table class="w-full text-left border-collapse" id="summary-table">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="p-5 font-black text-slate-400 uppercase text-[10px]">Faculty Name</th>
+                            <th class="p-5 font-black text-slate-400 uppercase text-[10px]">Department</th>
+                            <th class="p-5 font-black text-slate-400 uppercase text-[10px]">Feedbacks</th>
+                            <th class="p-5 font-black text-slate-400 uppercase text-[10px]">Avg Score (25)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashboard-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="department-view" class="animate__animated animate__fadeIn">
+           <div class="text-center mb-20 mt-10">
+                <h2 id="lang-hero" class="text-4xl font-extrabold text-gray-900 mb-2 tracking-tight">Academic Feedback System</h2>
+                <p id="lang-sub" class="text-gray-500">Select your department to view faculty list</p>
+            </div>
+           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 px-6" id="dept-grid"></div>
+        </div>
+
+        <div id="faculty-view" class="hidden animate__animated animate__fadeIn">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                <button onclick="showDepartments()" class="flex items-center text-blue-900 font-black hover:bg-white px-4 py-2 rounded-xl transition">
+                    <i class="fas fa-arrow-left mr-2"></i> DEPARTMENTS
+                </button>
+                <div class="relative w-full md:w-80">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="facultySearch" oninput="manualSearch()" placeholder="Search faculty..." class="w-full pl-11 pr-4 py-3 rounded-xl border-none shadow-md outline-none focus:ring-2 focus:ring-blue-900">
+                </div>
+            </div>
+            <h2 id="current-dept-title" class="text-2xl font-black text-blue-900 mb-6 border-l-4 border-blue-900 pl-4 uppercase"></h2>
+            <div id="faculty-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"></div>
+        </div>
+
+        <div id="form-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closePortal()"></div>
+            <div id="form-modal-content" class="glass w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] shadow-2xl relative animate__animated animate__zoomIn">
+                <div class="p-8 border-b sticky top-0 bg-white/95 backdrop-blur z-10 flex justify-between items-center">
+                    <div>
+                        <h2 id="modal-name" class="text-2xl font-black text-slate-900 leading-none"></h2>
+                        <p id="modal-dept" class="text-blue-600 font-bold mt-2 uppercase text-xs tracking-widest"></p>
+                    </div>
+                    <button onclick="closePortal()" class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="p-8 space-y-8" id="questions-list"></div>
+                <div class="p-8 bg-slate-900 text-white sticky bottom-0 z-10">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div>
+                            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Total Marks (Out of 80)</p>
+                            <div class="text-2xl font-bold text-white" id="total-marks">0 / 80</div>
+                        </div>
+                        <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700">
+                            <p class="text-yellow-500 text-[10px] font-bold uppercase tracking-widest">Final Score (Out of 25)</p>
+                            <div class="text-3xl font-black text-yellow-400" id="final-out-of-25">0.00 / 25</div>
+                        </div>
+                        <button onclick="validateAndSubmit()" class="w-full bg-white text-slate-900 py-4 rounded-2xl font-black hover:bg-yellow-400 transition-colors shadow-xl uppercase">Submit One-Time Feedback</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // SESSION STATE
+        let currentUser = null;
+        let isMarathi = false;
+        let activeFacId = null;
+
+        const facultyList = [];
+        const departments = ['CO', 'AN', 'IF', 'ENTC', 'CE', 'ME', 'EE', 'GSE'];
+        
+        // Build Data
+        departments.forEach(dept => {
+            for(let i = 1; i <= 10; i++) {
+                facultyList.push({
+                    id: `${dept}_F${i}`,
+                    name: `Prof. ${dept} Faculty ${i}`,
+                    dept: dept,
+                    role: i === 1 ? 'HOD' : 'Asst. Professor'
+                });
+            }
+        });
+
+        const paramsEN = ["Coverage of syllabus", "Covering topics beyond syllabus", "Effectiveness: Technical contents", "Effectiveness: Communication skills", "Effectiveness: Teaching aids", "Motivation for self-learning", "Support: Practical Performance", "Support: Project & Seminar", "Feedback on progress", "Punctuality and discipline", "Domain Knowledge", "Interaction with students", "Ability to resolve difficulties", "Encourage cocurricular activities", "Encourage Extracurricular activities", "Guidance during Internship"];
+        const paramsMR = ["अभ्यासक्रम कव्हरेज", "अभ्यासक्रमाच्या पलीकडील विषय", "तांत्रिक सामग्रीची प्रभावीता", "संवाद कौशल्य", "अध्यापन साधने", "स्व-शिक्षणासाठी प्रेरणा", "प्रात्यक्षिक कामगिरी समर्थन", "प्रकल्प आणि सेमिनार समर्थन", "प्रगतीवर दिलेला अभिप्राय", "वक्तशीरपणा आणि शिस्त", "विषय ज्ञान", "विद्यार्थ्यांशी संवाद", "अडचणी सोडवण्याची क्षमता", "सह-अभ्यासक्रम उपक्रम", "इतर उपक्रम", "इंटर्नशिप दरम्यान मार्गदर्शन"];
+
+        let currentScores = new Array(16).fill(0);
+        let activeDept = "";
+
+        // LOGIN LOGIC
+        function attemptLogin() {
+            const id = document.getElementById('login-id').value;
+            const role = document.getElementById('login-role').value;
+            const dept = document.getElementById('login-dept').value;
+
+            if(!id || !dept) { alert("Please enter ID and Department"); return; }
+
+            currentUser = { id, role, dept };
+            document.getElementById('login-overlay').classList.add('hidden');
+            
+            if(role === 'admin') {
+                showAdminDashboard();
+            } else {
+                renderDepartments();
+            }
+        }
+
+        function logout() { location.reload(); }
+
+        function toggleLang() {
+            isMarathi = !isMarathi;
+            document.getElementById('lang-hero').innerText = isMarathi ? "शैक्षणिक अभिप्राय प्रणाली" : "Academic Feedback System";
+            document.getElementById('lang-sub').innerText = isMarathi ? "प्राध्यापकांची यादी पाहण्यासाठी तुमचा विभाग निवडा" : "Select your department to view faculty list";
+            if(document.getElementById('form-modal').classList.contains('hidden') === false) renderQuestions();
+        }
+
+        function renderDepartments() {
+            const container = document.getElementById('dept-grid');
+            const depts = [
+                { id: 'CO', name: 'Computer', icon: 'fa-desktop', color: 'blue' },
+                { id: 'AN', name: 'AI & DS', icon: 'fa-brain', color: 'indigo' },
+                { id: 'IF', name: 'Info Tech', icon: 'fa-network-wired', color: 'cyan' },
+                { id: 'ENTC', name: 'ENTC', icon: 'fa-microchip', color: 'red' },
+                { id: 'CE', name: 'Civil', icon: 'fa-hard-hat', color: 'green' },
+                { id: 'ME', name: 'Mechanical', icon: 'fa-tools', color: 'orange' },
+                { id: 'EE', name: 'Electrical', icon: 'fa-bolt', color: 'yellow' },
+                { id: 'GSE', name: 'Gen. Science', icon: 'fa-atom', color: 'purple' }
+            ];
+            container.innerHTML = depts.map(d => `
+                <div onclick="filterByDept('${d.id}')" class="dept-card bg-white p-8 rounded-3xl flex flex-col items-center text-center border-2 border-transparent animate__animated animate__fadeInUp">
+                    <div class="w-14 h-14 bg-slate-100 text-blue-900 rounded-2xl flex items-center justify-center text-2xl mb-4"><i class="fas ${d.icon}"></i></div>
+                    <h3 class="font-black text-gray-800">${d.id}</h3>
+                    <p class="text-xs text-gray-400 font-bold uppercase">${d.name}</p>
+                </div>
+            `).join('');
+        }
+
+        function filterByDept(dept) {
+            if(currentUser.role === 'student' && currentUser.dept !== dept) {
+                alert(isMarathi ? "तुम्ही फक्त तुमच्या स्वतःच्या विभागासाठी अभिप्राय देऊ शकता." : "You are only allowed to provide feedback for your own department.");
+                return;
+            }
+            activeDept = dept;
+            document.getElementById('department-view').classList.add('hidden');
+            document.getElementById('faculty-view').classList.remove('hidden');
+            document.getElementById('current-dept-title').innerText = dept + " Department Faculty";
+            renderFacultyCards(facultyList.filter(f => f.dept === dept));
+        }
+
+        function renderFacultyCards(data) {
+            const grid = document.getElementById('faculty-grid');
+            // Get already submitted IDs from localstorage
+            const submitted = JSON.parse(localStorage.getItem(`ytc_sub_${currentUser.id}`) || "[]");
+
+            grid.innerHTML = data.map((f, i) => {
+                const isDone = submitted.includes(f.id);
+                return `
+                    <div onclick="${isDone ? '' : `openPortal('${f.id}', '${f.name}', '${f.dept}')`}" 
+                         class="fac-card bg-white p-6 rounded-3xl animate__animated animate__fadeInUp ${isDone ? 'locked-card' : ''}" 
+                         style="animation-delay: ${i * 0.02}s">
+                        ${isDone ? '<div class="absolute top-4 right-4 text-green-600 font-black text-[10px]"><i class="fas fa-check-circle"></i> SUBMITTED</div>' : ''}
+                        <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-blue-900 mb-4 border border-slate-100"><i class="fas fa-user-tie"></i></div>
+                        <h4 class="text-lg font-bold text-gray-800">${f.name}</h4>
+                        <p class="text-xs font-bold text-blue-600 uppercase mt-1">${f.dept} Dept</p>
+                        <p class="text-[10px] text-gray-400 italic">${f.role}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openPortal(id, name, dept) {
+            activeFacId = id;
+            document.getElementById('modal-name').innerText = name;
+            document.getElementById('modal-dept').innerText = dept + " Department";
+            document.getElementById('form-modal').classList.remove('hidden');
+            document.getElementById('nav-score').classList.remove('hidden');
+            renderQuestions();
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('questions-list');
+            const list = isMarathi ? paramsMR : paramsEN;
+            container.innerHTML = list.map((p, i) => `
+                <div id="q-container-${i}" class="space-y-4 p-5 rounded-2xl border border-transparent hover:border-slate-200">
+                    <div class="flex justify-between items-start gap-4">
+                        <label class="text-slate-800 font-bold text-md leading-tight">${i+1}. ${p}</label>
+                        <span class="text-blue-900 font-black text-xl bg-blue-50 w-10 h-10 rounded-lg flex items-center justify-center" id="val-${i}">${currentScores[i] || '-'}</span>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        ${[1,2,3,4,5].map(n => `
+                            <button onclick="updateScore(${i}, ${n}, this)" 
+                            class="rating-btn flex-1 py-3 rounded-xl font-black ${currentScores[i] === n ? 'bg-blue-900 text-white shadow-lg' : 'text-slate-400 bg-slate-50 hover:bg-white'}">${n}</button>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateScore(idx, val, btn) {
+            btn.parentElement.querySelectorAll('button').forEach(b => {
+                b.classList.remove('bg-blue-900', 'text-white', 'shadow-lg');
+                b.classList.add('bg-slate-50', 'text-slate-400');
+            });
+            btn.classList.add('bg-blue-900', 'text-white', 'shadow-lg');
+            btn.classList.remove('bg-slate-50', 'text-slate-400');
+            currentScores[idx] = val;
+            document.getElementById(`val-${idx}`).innerText = val;
+            updateScoreDisplay();
+        }
+
+        function updateScoreDisplay() {
+            const total = currentScores.reduce((a, b) => a + b, 0);
+            const finalScore = ((total / 80) * 25).toFixed(2);
+            document.getElementById('total-marks').innerText = `${total} / 80`;
+            document.getElementById('final-out-of-25').innerText = `${finalScore} / 25`;
+            document.getElementById('live-score').innerText = `${finalScore}/25`;
+        }
+
+        function validateAndSubmit() {
+            if (currentScores.includes(0)) { alert("Please complete all 16 points."); return; }
+            
+            // 1. Save locally to lock the card
+            const submitted = JSON.parse(localStorage.getItem(`ytc_sub_${currentUser.id}`) || "[]");
+            submitted.push(activeFacId);
+            localStorage.setItem(`ytc_sub_${currentUser.id}`, JSON.stringify(submitted));
+
+            // 2. Save result for Admin Dashboard
+            const results = JSON.parse(localStorage.getItem('ytc_global_results') || "[]");
+            const final = ((currentScores.reduce((a,b)=>a+b,0) / 80) * 25).toFixed(2);
+            results.push({ facId: activeFacId, score: final, dept: activeDept });
+            localStorage.setItem('ytc_global_results', JSON.stringify(results));
+
+            alert(isMarathi ? "अभिप्राय यशस्वीरित्या सबमिट केला!" : "Feedback successfully submitted!");
+            closePortal();
+            renderFacultyCards(facultyList.filter(f => f.dept === activeDept));
+        }
+
+        function closePortal() {
+            document.getElementById('form-modal').classList.add('hidden');
+            document.getElementById('nav-score').classList.add('hidden');
+            currentScores.fill(0);
+            updateScoreDisplay();
+        }
+
+        function showDepartments() {
+            document.getElementById('department-view').classList.remove('hidden');
+            document.getElementById('faculty-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.add('hidden');
+        }
+
+        // ADMIN FEATURES
+        function showAdminDashboard() {
+            document.getElementById('department-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            
+            const results = JSON.parse(localStorage.getItem('ytc_global_results') || "[]");
+            const tbody = document.getElementById('dashboard-body');
+            tbody.innerHTML = "";
+
+            facultyList.forEach(f => {
+                const facResults = results.filter(r => r.facId === f.id);
+                const avg = facResults.length ? (facResults.reduce((a,b)=>a+parseFloat(b.score),0)/facResults.length).toFixed(2) : "0.00";
+                
+                tbody.innerHTML += `
+                    <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                        <td class="p-5 font-bold text-slate-800">${f.name}</td>
+                        <td class="p-5 text-xs font-black text-blue-600">${f.dept}</td>
+                        <td class="p-5 font-bold text-slate-400">${facResults.length}</td>
+                        <td class="p-5 font-black text-blue-900 text-lg">${avg}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function generatePDFReport() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const results = JSON.parse(localStorage.getItem('ytc_global_results') || "[]");
+
+            doc.setFontSize(18);
+            doc.text("Yashoda Technical Campus - Faculty Feedback Summary", 14, 20);
+            doc.setFontSize(10);
+            doc.text(`Report Date: ${new Date().toLocaleDateString()}`, 14, 28);
+
+            const tableRows = facultyList.map(f => {
+                const facResults = results.filter(r => r.facId === f.id);
+                const avg = facResults.length ? (facResults.reduce((a,b)=>a+parseFloat(b.score),0)/facResults.length).toFixed(2) : "0.00";
+                return [f.name, f.dept, facResults.length, avg];
+            });
+
+            doc.autoTable({
+                head: [['Faculty Name', 'Department', 'Total Feedbacks', 'Avg Score (25)']],
+                body: tableRows,
+                startY: 35,
+                theme: 'striped',
+                headStyles: { fillColor: [30, 58, 138] }
+            });
+
+            doc.save("YTC_Feedback_Report.pdf");
+        }
+        function manualSearch() {
+    const query = document.getElementById('facultySearch').value.toLowerCase();
+    const filtered = facultyList.filter(f => f.dept === activeDept && f.name.toLowerCase().includes(query));
+    renderFacultyCards(filtered);
+}
+
+    </script>
+</body>
+</html>
